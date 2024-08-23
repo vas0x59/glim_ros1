@@ -3,29 +3,32 @@
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/PointCloud2.h>
+#include <nav_msgs/Odometry.h>
 #include <cv_bridge/cv_bridge.h>
 #include <image_transport/image_transport.h>
 
 #include <glim/util/config.hpp>
 #include <glim/util/extension_module_ros.hpp>
 
-#include <glim_ros/glim_ros.hpp>
+#include <glim_ros/glim_ros_gazel.hpp>
 //#include <Eigen/Dense>
 
 class GlimNode {
 public:
-  GlimNode() : nh("~"), image_transport(nh) {
+  GlimNode() : nh("~") {
     ROS_INFO_STREAM("Starting GLIM");
-    glim_ros.reset(new glim::GlimROS(nh));
+    glim_ros.reset(new glim::GlimROSGazel(nh));
 
     glim::Config config_ros(glim::GlobalConfig::get_config_path("config_ros"));
-    const std::string imu_topic = config_ros.param<std::string>("glim_ros", "imu_topic", "");
-    const std::string points_topic = config_ros.param<std::string>("glim_ros", "points_topic", "");
-    const std::string image_topic = config_ros.param<std::string>("glim_ros", "image_topic", "");
+    const std::string imu_topic = config_ros.param<std::string>("glim_ros", "imu_topic", "/ouster_top/imu");
+    const std::string points_topic = config_ros.param<std::string>("glim_ros", "points_topic", "/joined_point_cloud");
+    const std::string gkv_topic = config_ros.param<std::string>("glim_ros", "gkv_topic", "/gkv/odom");
+//    const std::string image_topic = config_ros.param<std::string>("glim_ros", "image_topic", "");
 
-    image_sub = image_transport.subscribe(image_topic, 5, &GlimNode::image_callback, this);
-    imu_sub = nh.subscribe(imu_topic, 5, &GlimNode::imu_callback, this);
-    points_sub = nh.subscribe(points_topic, 5, &GlimNode::points_callback, this);
+//    image_sub = image_transport.subscribe(image_topic, 5, &GlimNode::image_callback, this);
+    imu_sub = nh.subscribe(imu_topic, 3, &GlimNode::imu_callback, this);
+    points_sub = nh.subscribe(points_topic, 1, &GlimNode::points_callback, this);
+    gkv_sub = nh.subscribe(gkv_topic, 2, &GlimNode::gkv_callback, this);
 
     ext_subs = glim_ros->extension_subscriptions();
     for (auto& sub : ext_subs) {
@@ -45,6 +48,10 @@ public:
 
     glim_ros->insert_imu(stamp, Eigen::Vector3d(linear_acc.x, linear_acc.y, linear_acc.z), Eigen::Vector3d(angular_vel.x, angular_vel.y, angular_vel.z));
   }
+  void gkv_callback(const nav_msgs::Odometry & odom_msg) {
+
+//    glim_ros->insert_gkv(stamp, );
+  }
 
   void points_callback(const sensor_msgs::PointCloud2ConstPtr& points_msg) {
     auto raw_points = glim::extract_raw_points(points_msg);
@@ -63,14 +70,15 @@ public:
 private:
   ros::NodeHandle nh;
 
-  image_transport::ImageTransport image_transport;
-  image_transport::Subscriber image_sub;
+//  image_transport::ImageTransport image_transport;
+//  image_transport::Subscriber image_sub;
 
   ros::Subscriber imu_sub;
   ros::Subscriber points_sub;
+  ros::Subscriber gkv_sub;
   std::vector<std::shared_ptr<glim::GenericTopicSubscription>> ext_subs;
 
-  std::unique_ptr<glim::GlimROS> glim_ros;
+  std::unique_ptr<glim::GlimROSGazel> glim_ros;
 };
 
 int main(int argc, char** argv) {

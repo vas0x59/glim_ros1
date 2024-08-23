@@ -77,12 +77,39 @@ target_link_libraries(rviz_viewer
   glim_ros
 )
 
+#add_library(glim_ros_gazel
+#        src/glim_ros/glim_ros_gazel.cpp
+#)
+#target_include_directories(glim_ros_gazel PUBLIC
+#        include
+#        ${catkin_INCLUDE_DIRS}
+#)
+#target_link_libraries(glim_ros_gazel
+#        glim::glim
+#        ${catkin_LIBRARIES}
+#)
+
+#add_library(rviz_viewer SHARED
+#        src/glim_ros/rviz_viewer.cpp
+#)
+#target_link_libraries(rviz_viewer
+#        glim_ros_gazel
+#)
+
+
 add_executable(glim_rosnode
   src/glim_rosnode.cpp
 )
 target_link_libraries(glim_rosnode
   glim_ros
 )
+
+#add_executable(glim_rosnode_gazel
+#        src/glim_rosnode_gazel.cpp
+#)
+#target_link_libraries(glim_rosnode_gazel
+#        glim_ros_gazel
+#)
 
 add_executable(glim_rosbag
   src/glim_rosbag.cpp

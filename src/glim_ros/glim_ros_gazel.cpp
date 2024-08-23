@@ -1,4 +1,4 @@
-#include <glim_ros/glim_ros.hpp>
+#include <glim_ros/glim_ros_gazel.hpp>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
@@ -27,7 +27,7 @@
 
 namespace glim {
 
-GlimROS::GlimROS(ros::NodeHandle& nh) {
+GlimROSGazel::GlimROSGazel(ros::NodeHandle& nh) {
   // Setup logger
   auto logger = spdlog::default_logger();
   auto ringbuffer_sink = get_ringbuffer_sink();
@@ -75,7 +75,8 @@ GlimROS::GlimROS(ros::NodeHandle& nh) {
   const std::string odometry_estimation_so_name = config_odometry.param<std::string>("odometry_estimation", "so_name", "libodometry_estimation_cpu.so");
   spdlog::info("load {}", odometry_estimation_so_name);
 
-  std::shared_ptr<glim::OdometryEstimationBase> odom = OdometryEstimationBase::load_module(odometry_estimation_so_name);
+//  std::shared_ptr<glim::OdometryEstimationBase> odom = OdometryEstimationBase::load_module(odometry_estimation_so_name);
+    std::shared_ptr<glim::OdometryEstimationBase> odom = std::make_shared<OdometryEstimationGPU>();
   if (!odom) {
     spdlog::critical("failed to load odometry estimation module");
     abort();
@@ -83,25 +84,25 @@ GlimROS::GlimROS(ros::NodeHandle& nh) {
   odometry_estimation.reset(new glim::AsyncOdometryEstimation(odom, odom->requires_imu()));
 
   // Sub mapping
-  const std::string sub_mapping_so_name = glim::Config(glim::GlobalConfig::get_config_path("config_sub_mapping")).param<std::string>("sub_mapping", "so_name", "libsub_mapping.so");
-  if (!sub_mapping_so_name.empty()) {
-    spdlog::info("load {}", sub_mapping_so_name);
-    auto sub = SubMappingBase::load_module(sub_mapping_so_name);
-    if (sub) {
-      sub_mapping.reset(new AsyncSubMapping(sub));
-    }
-  }
-
-  // Global mapping
-  const std::string global_mapping_so_name =
-    glim::Config(glim::GlobalConfig::get_config_path("config_global_mapping")).param<std::string>("global_mapping", "so_name", "libglobal_mapping.so");
-  if (!global_mapping_so_name.empty()) {
-    spdlog::info("load {}", global_mapping_so_name);
-    auto global = GlobalMappingBase::load_module(global_mapping_so_name);
-    if (global) {
-      global_mapping.reset(new AsyncGlobalMapping(global));
-    }
-  }
+//  const std::string sub_mapping_so_name = glim::Config(glim::GlobalConfig::get_config_path("config_sub_mapping")).param<std::string>("sub_mapping", "so_name", "libsub_mapping.so");
+//  if (!sub_mapping_so_name.empty()) {
+//    spdlog::info("load {}", sub_mapping_so_name);
+//    auto sub = SubMappingBase::load_module(sub_mapping_so_name);
+//    if (sub) {
+//      sub_mapping.reset(new AsyncSubMapping(sub));
+//    }
+//  }
+//
+//  // Global mapping
+//  const std::string global_mapping_so_name =
+//    glim::Config(glim::GlobalConfig::get_config_path("config_global_mapping")).param<std::string>("global_mapping", "so_name", "libglobal_mapping.so");
+//  if (!global_mapping_so_name.empty()) {
+//    spdlog::info("load {}", global_mapping_so_name);
+//    auto global = GlobalMappingBase::load_module(global_mapping_so_name);
+//    if (global) {
+//      global_mapping.reset(new AsyncGlobalMapping(global));
+//    }
+//  }
 
   // Extention modules
   const auto extensions = config_ros.param<std::vector<std::string>>("glim_ros", "extension_modules");
@@ -144,33 +145,34 @@ GlimROS::GlimROS(ros::NodeHandle& nh) {
   spdlog::debug("initialized");
 }
 
-GlimROS::~GlimROS() {
+GlimROSGazel::~GlimROSGazel() {
   kill_switch = true;
   thread.join();
 }
 
-const std::vector<std::shared_ptr<ExtensionModule>>& GlimROS::extensions() {
+const std::vector<std::shared_ptr<ExtensionModule>>& GlimROSGazel::extensions() {
   return extension_modules;
 }
 
-const std::vector<std::shared_ptr<GenericTopicSubscription>>& GlimROS::extension_subscriptions() {
+const std::vector<std::shared_ptr<GenericTopicSubscription>>& GlimROSGazel::extension_subscriptions() {
   return extension_subs;
 }
+//
+//void GlimROSGazel::insert_image(const double stamp, const cv::Mat& image) {
+//  spdlog::trace("image: {:.6f}", stamp);
+//
+//  odometry_estimation->insert_image(stamp, image);
+//
+//
+//  if (sub_mapping) {
+//    sub_mapping->insert_image(stamp, image);
+//  }
+//  if (global_mapping) {
+//    global_mapping->insert_image(stamp, image);
+//  }
+//}
 
-void GlimROS::insert_image(const double stamp, const cv::Mat& image) {
-  spdlog::trace("image: {:.6f}", stamp);
-
-  odometry_estimation->insert_image(stamp, image);
-
-  if (sub_mapping) {
-    sub_mapping->insert_image(stamp, image);
-  }
-  if (global_mapping) {
-    global_mapping->insert_image(stamp, image);
-  }
-}
-
-void GlimROS::insert_imu(double stamp, const Eigen::Vector3d& linear_acc, const Eigen::Vector3d& angular_vel) {
+void GlimROSGazel::insert_imu(double stamp, const Eigen::Vector3d& linear_acc, const Eigen::Vector3d& angular_vel) {
   spdlog::trace("IMU: {:.6f}", stamp);
 
   stamp += imu_time_offset;
@@ -178,24 +180,38 @@ void GlimROS::insert_imu(double stamp, const Eigen::Vector3d& linear_acc, const 
 
   odometry_estimation->insert_imu(stamp, acc_scale * linear_acc, angular_vel);
 
-  if (sub_mapping) {
-    sub_mapping->insert_imu(stamp, acc_scale * linear_acc, angular_vel);
-  }
-  if (global_mapping) {
-    global_mapping->insert_imu(stamp, acc_scale * linear_acc, angular_vel);
-  }
+
+//  if (sub_mapping) {
+//    sub_mapping->insert_imu(stamp, acc_scale * linear_acc, angular_vel);
+//  }
+//  if (global_mapping) {
+//    global_mapping->insert_imu(stamp, acc_scale * linear_acc, angular_vel);
+//  }
 }
 
-void GlimROS::insert_frame(const glim::RawPoints::Ptr& raw_points) {
-    using std::chrono::high_resolution_clock;
-    using std::chrono::duration_cast;
-    using std::chrono::duration;
-    using std::chrono::milliseconds;
+void GlimROSGazel::insert_gkv(double stamp,const gtsam::Pose3& pose, const Eigen::Vector3d& w, const Eigen::Vector3d& v) {
+  gazel_nav_estimation->insert_gkv(stamp, pose, w, v);
+}
 
-    auto t1 = high_resolution_clock::now();
+void GlimROSGazel::insert_loc(double stamp,const gtsam::Pose3& pose) {
+  gazel_nav_estimation->insert_loc(stamp, pose);
+}
+void GlimROSGazel::insert_vd(double stamp,double w, double v) {
+  gazel_nav_estimation->insert_vd(stamp, w, v);
+}
 
 
-    spdlog::trace("points: {:.6f}", raw_points->stamp);
+
+void GlimROSGazel::insert_frame(const glim::RawPoints::Ptr& raw_points) {
+  using std::chrono::high_resolution_clock;
+  using std::chrono::duration_cast;
+  using std::chrono::duration;
+  using std::chrono::milliseconds;
+
+  auto t1 = high_resolution_clock::now();
+
+
+  spdlog::trace("points: {:.6f}", raw_points->stamp);
 
   time_keeper->process(raw_points);
   // auto preprocessed = preprocessor->preprocess(raw_points->stamp, raw_points->times, raw_points->points);
@@ -217,7 +233,7 @@ void GlimROS::insert_frame(const glim::RawPoints::Ptr& raw_points) {
   odometry_estimation->insert_frame(preprocessed);
 }
 
-void GlimROS::loop() {
+void GlimROSGazel::loop() {
   while (!kill_switch) {
     for (const auto& ext_module : extension_modules) {
       if (!ext_module->ok()) {
@@ -232,53 +248,57 @@ void GlimROS::loop() {
     if (estimation_results.empty() && marginalized_frames.empty()) {
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
-
-    if (sub_mapping) {
-      for (const auto& marginalized_frame : marginalized_frames) {
-        sub_mapping->insert_frame(marginalized_frame);
-      }
-      const auto submaps = sub_mapping->get_results();
-
-      if (global_mapping) {
-        for (const auto& submap : submaps) {
-          global_mapping->insert_submap(submap);
-        }
-      }
+    if (gazel_nav_estimation) {
+      gazel_nav_estimation->insert_odom_estimation_results(estimation_results);
     }
+
+//    if (sub_mapping) {
+//      for (const auto& marginalized_frame : marginalized_frames) {
+//        sub_mapping->insert_frame(marginalized_frame);
+//      }
+//      const auto submaps = sub_mapping->get_results();
+//
+//      if (global_mapping) {
+//        for (const auto& submap : submaps) {
+//          global_mapping->insert_submap(submap);
+//        }
+//      }
+//    }
   }
 }
 
-void GlimROS::save(const std::string& path) {
-  if (global_mapping) {
-    global_mapping->save(path);
-  }
+void GlimROSGazel::save(const std::string& path) {
+//  if (global_mapping) {
+//    global_mapping->save(path);
+//  }
 }
 
-void GlimROS::wait(bool auto_quit) {
+void GlimROSGazel::wait(bool auto_quit) {
   spdlog::info("waiting for odometry estimation");
   odometry_estimation->join();
+//  if ()
 
-  if (sub_mapping) {
-    std::vector<glim::EstimationFrame::ConstPtr> estimation_results;
-    std::vector<glim::EstimationFrame::ConstPtr> marginalized_frames;
-    odometry_estimation->get_results(estimation_results, marginalized_frames);
-    for (const auto& marginalized_frame : marginalized_frames) {
-      sub_mapping->insert_frame(marginalized_frame);
-    }
-
-    spdlog::info("waiting for local mapping");
-    sub_mapping->join();
-    const auto submaps = sub_mapping->get_results();
-
-    if (global_mapping) {
-      for (const auto& submap : submaps) {
-        global_mapping->insert_submap(submap);
-      }
-
-      spdlog::info("waiting for global mapping");
-      global_mapping->join();
-    }
-  }
+//  if (sub_mapping) {
+//    std::vector<glim::EstimationFrame::ConstPtr> estimation_results;
+//    std::vector<glim::EstimationFrame::ConstPtr> marginalized_frames;
+//    odometry_estimation->get_results(estimation_results, marginalized_frames);
+//    for (const auto& marginalized_frame : marginalized_frames) {
+//      sub_mapping->insert_frame(marginalized_frame);
+//    }
+//
+//    spdlog::info("waiting for local mapping");
+//    sub_mapping->join();
+//    const auto submaps = sub_mapping->get_results();
+//
+//    if (global_mapping) {
+//      for (const auto& submap : submaps) {
+//        global_mapping->insert_submap(submap);
+//      }
+//
+//      spdlog::info("waiting for global mapping");
+//      global_mapping->join();
+//    }
+//  }
 
   if (!auto_quit) {
     bool terminate = false;
