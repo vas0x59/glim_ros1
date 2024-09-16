@@ -4,6 +4,12 @@
 #include <ros/ros.h>
 #include <opencv2/core.hpp>
 #include <glim/util/ros_cloud_converter.hpp>
+#include <nav_msgs/Odometry.h>
+#include <gtsam/geometry/Pose3.h>
+
+#include <tf2_ros/transform_listener.h>
+#include <tf2_eigen/tf2_eigen.h>
+#include <tf2_ros/buffer.h>
 
 namespace glim {
 
@@ -31,6 +37,7 @@ public:
   void insert_image(const double stamp, const cv::Mat& image);
   void insert_imu(double stamp, const Eigen::Vector3d& linear_acc, const Eigen::Vector3d& angular_vel);
   void insert_frame(const glim::RawPoints::Ptr& raw_points);
+  void insert_raw_gkv(const nav_msgs::Odometry & odom_msg);
 
   void wait(bool auto_quit);
 
@@ -43,6 +50,8 @@ private:
   std::atomic_bool kill_switch;
   std::thread thread;
 
+  // gtsam::Pose3 T_odom_odom_ned;
+
   double imu_time_offset;
   double acc_scale;
   std::unique_ptr<glim::TimeKeeper> time_keeper;
@@ -54,6 +63,11 @@ private:
 
   std::vector<std::shared_ptr<ExtensionModule>> extension_modules;
   std::vector<std::shared_ptr<GenericTopicSubscription>> extension_subs;
+
+
+  tf2_ros::Buffer tf_buffer;
+  tf2_ros::TransformListener tf_listener;
+
 };
 
 }  // namespace glim

@@ -25,9 +25,11 @@
 #include <glim/mapping/async_global_mapping.hpp>
 #include <glim/mapping/global_mapping.hpp>
 
+#include <gazel_nav_tools/utils.hpp>
+
 namespace glim {
 
-GlimROS::GlimROS(ros::NodeHandle& nh) {
+GlimROS::GlimROS(ros::NodeHandle& nh) : tf_buffer(ros::Duration(100.)), tf_listener(tf_buffer) {
   // Setup logger
   auto logger = spdlog::default_logger();
   auto ringbuffer_sink = get_ringbuffer_sink();
@@ -156,6 +158,24 @@ const std::vector<std::shared_ptr<ExtensionModule>>& GlimROS::extensions() {
 const std::vector<std::shared_ptr<GenericTopicSubscription>>& GlimROS::extension_subscriptions() {
   return extension_subs;
 }
+
+void GlimROS::insert_raw_gkv(const nav_msgs::Odometry& odom_msg) {
+  auto [pose_odom_ned_gkv, cov_odom_ned_gkv_gkv] =  gazel_nav_tools::ros_pose_with_cov_to_gtsam(odom_msg.pose);
+
+  gtsam::Pose3 T_odom_odom_ned = gtsam::Pose3(tf2::transformToEigen(tf_buffer.lookupTransform("odom", "odom_ned", odom_msg.header.stamp, ros::Duration(0.01))).matrix());
+
+  gtsam::Pose3 T_gkv_imu = gtsam::Pose3(tf2::transformToEigen(tf_buffer.lookupTransform("gkv", "os_imu_top", odom_msg.header.stamp, ros::Duration(0.01))).matrix());
+  gtsam::Matrix66 adj_gkv_bl =  T_gkv_imu.AdjointMap();
+  auto pose_odom_ned_bl = pose_odom_ned_gkv.compose(T_gkv_imu);
+  gtsam::Matrix66 cov_odom_ned_bl_bl = adj_gkv_bl * cov_odom_ned_gkv_gkv * adj_gkv_bl.transpose();
+  gtsam::Matrix66 &cov_odom_bl_bl = cov_odom_ned_bl_bl;
+  auto pose_odom_bl = T_odom_odom_ned.compose(pose_odom_ned_bl);
+
+
+
+  odometry_estimation->insert_gkv(odom_msg.header.stamp.toSec(), pose_odom_bl, cov_odom_bl_bl);
+}
+
 
 void GlimROS::insert_image(const double stamp, const cv::Mat& image) {
   spdlog::trace("image: {:.6f}", stamp);

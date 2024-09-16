@@ -10,6 +10,8 @@
 #include <glim/util/extension_module_ros.hpp>
 
 #include <glim_ros/glim_ros.hpp>
+#include <nav_msgs/Odometry.h>
+// #include <gazel>
 //#include <Eigen/Dense>
 
 class GlimNode {
@@ -22,10 +24,12 @@ public:
     const std::string imu_topic = config_ros.param<std::string>("glim_ros", "imu_topic", "");
     const std::string points_topic = config_ros.param<std::string>("glim_ros", "points_topic", "");
     const std::string image_topic = config_ros.param<std::string>("glim_ros", "image_topic", "");
+    const std::string gkv_topic = config_ros.param<std::string>("glim_ros", "gkv_topic", "/gkv/odom");
 
-    image_sub = image_transport.subscribe(image_topic, 5, &GlimNode::image_callback, this);
-    imu_sub = nh.subscribe(imu_topic, 5, &GlimNode::imu_callback, this);
-    points_sub = nh.subscribe(points_topic, 5, &GlimNode::points_callback, this);
+    // image_sub = image_transport.subscribe(image_topic, 5, &GlimNode::image_callback, this);
+    imu_sub = nh.subscribe(imu_topic, 1, &GlimNode::imu_callback, this);
+    points_sub = nh.subscribe(points_topic, 1, &GlimNode::points_callback, this);
+    gkv_sub = nh.subscribe(gkv_topic, 1, &GlimNode::gkv_callback, this);
 
     ext_subs = glim_ros->extension_subscriptions();
     for (auto& sub : ext_subs) {
@@ -50,6 +54,10 @@ public:
     auto raw_points = glim::extract_raw_points(points_msg);
     glim_ros->insert_frame(raw_points);
   }
+  void gkv_callback(const nav_msgs::Odometry & odom_msg) {
+
+    glim_ros->insert_raw_gkv(odom_msg);
+  }
 
   void spin() {
     while (ros::ok()) {
@@ -68,6 +76,7 @@ private:
 
   ros::Subscriber imu_sub;
   ros::Subscriber points_sub;
+  ros::Subscriber gkv_sub;
   std::vector<std::shared_ptr<glim::GenericTopicSubscription>> ext_subs;
 
   std::unique_ptr<glim::GlimROS> glim_ros;
