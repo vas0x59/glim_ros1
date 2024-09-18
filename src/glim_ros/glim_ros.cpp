@@ -172,18 +172,32 @@ void GlimROS::insert_raw_gkv(const nav_msgs::Odometry& odom_msg) {
   gtsam::Pose3 T_odom_odom_ned = gtsam::Pose3(tf2::transformToEigen(tf_buffer.lookupTransform("odom", "odom_ned", odom_msg.header.stamp, ros::Duration(0.01))).matrix());
 
   gtsam::Pose3 T_gkv_imu = gtsam::Pose3(tf2::transformToEigen(tf_buffer.lookupTransform("gkv", "os_imu_top", odom_msg.header.stamp, ros::Duration(0.01))).matrix());
-  gtsam::Matrix66 adj_gkv_bl =  T_gkv_imu.AdjointMap();
+  gtsam::Matrix66 adj_gkv_imu =  T_gkv_imu.AdjointMap();
   auto pose_odom_ned_bl = pose_odom_ned_gkv.compose(T_gkv_imu);
-  gtsam::Matrix66 cov_odom_ned_bl_bl = adj_gkv_bl * cov_odom_ned_gkv_gkv * adj_gkv_bl.transpose();
-  gtsam::Matrix66 &cov_odom_bl_bl = cov_odom_ned_bl_bl;
+  gtsam::Matrix66 cov_odom_ned_imu_imu = adj_gkv_imu * cov_odom_ned_gkv_gkv * adj_gkv_imu.transpose();
+  gtsam::Matrix66 &cov_odom_imu_imu = cov_odom_ned_imu_imu;
   auto pose_odom_bl = T_odom_odom_ned.compose(pose_odom_ned_bl);
 
 
 
-  odometry_estimation->insert_gkv(odom_msg.header.stamp.toSec(), pose_odom_bl, cov_odom_bl_bl);
+  odometry_estimation->insert_gkv(odom_msg.header.stamp.toSec(), pose_odom_bl, cov_odom_imu_imu);
 }
 
 void GlimROS::insert_raw_loc(const geometry_msgs::PoseWithCovarianceStamped& pose_msg) {
+  auto [pose_odom_base_link, cov_odom_bl_bl] =  gazel_nav_tools::ros_pose_with_cov_to_gtsam(pose_msg.pose);
+
+  // gtsam::Pose3 T_odom_odom_ned = gtsam::Pose3(tf2::transformToEigen(tf_buffer.lookupTransform("odom", "odom_ned", pose_msg.header.stamp, ros::Duration(0.01))).matrix());
+
+  gtsam::Pose3 T_base_link_imu = gtsam::Pose3(tf2::transformToEigen(tf_buffer.lookupTransform("base_link", "os_imu_top", pose_msg.header.stamp, ros::Duration(0.01))).matrix());
+  gtsam::Matrix66 adj_gkv_bl =  T_base_link_imu.AdjointMap();
+  auto pose_odom_imu = pose_odom_base_link.compose(T_base_link_imu);
+  gtsam::Matrix66 cov_odom_imu_imu = adj_gkv_bl * cov_odom_bl_bl * adj_gkv_bl.transpose();
+  // gtsam::Matrix66 &cov_odom_ = cov_odom_imu_imu;
+  // auto pose_odom_bl = T_odom_odom_ned.compose(pose_odom_ned_bl);
+
+
+
+  odometry_estimation->insert_loc(pose_msg.header.stamp.toSec(), pose_odom_imu, cov_odom_imu_imu);
 
 }
 
