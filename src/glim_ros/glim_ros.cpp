@@ -30,6 +30,7 @@
 namespace glim {
 
 GlimROS::GlimROS(ros::NodeHandle& nh) : tf_buffer(ros::Duration(100.)), tf_listener(tf_buffer) {
+  // tf_buffer.
   // Setup logger
   auto logger = spdlog::default_logger();
   auto ringbuffer_sink = get_ringbuffer_sink();
@@ -73,15 +74,21 @@ GlimROS::GlimROS(ros::NodeHandle& nh) : tf_buffer(ros::Duration(100.)), tf_liste
   preprocessor.reset(new glim::CloudPreprocessor);
 
   // Odometry estimation
-  glim::Config config_odometry(glim::GlobalConfig::get_config_path("config_odometry"));
-  const std::string odometry_estimation_so_name = config_odometry.param<std::string>("odometry_estimation", "so_name", "libodometry_estimation_cpu.so");
-  spdlog::info("load {}", odometry_estimation_so_name);
+  // glim::Config config_odometry(glim::GlobalConfig::get_config_path("config_odometry"));
+  // const std::string odometry_estimation_so_name = config_odometry.param<std::string>("odometry_estimation", "so_name", "libodometry_estimation_cpu.so");
+  // spdlog::info("load {}", odometry_estimation_so_name);
 
-  std::shared_ptr<glim::OdometryEstimationBase> odom = OdometryEstimationBase::load_module(odometry_estimation_so_name);
+  // std::shared_ptr<glim::OdometryEstimationBase> odom = OdometryEstimationBase::load_module(odometry_estimation_so_name);
+
+  auto T_l_imu = tf2::transformToEigen(tf_buffer.lookupTransform("base_link", "os_imu_top", ros::Time(0), ros::Duration(1)));
+  std::cout << "T_l_imu: " << T_l_imu.matrix() << std::endl;
+  std::shared_ptr<glim::OdometryEstimationBase> odom = std::make_shared<OdometryEstimationGPU>(OdometryEstimationGPUParams(T_l_imu));
+
   if (!odom) {
     spdlog::critical("failed to load odometry estimation module");
     abort();
   }
+
   odometry_estimation.reset(new glim::AsyncOdometryEstimation(odom, odom->requires_imu()));
 
   // Sub mapping
@@ -174,6 +181,10 @@ void GlimROS::insert_raw_gkv(const nav_msgs::Odometry& odom_msg) {
 
 
   odometry_estimation->insert_gkv(odom_msg.header.stamp.toSec(), pose_odom_bl, cov_odom_bl_bl);
+}
+
+void GlimROS::insert_raw_loc(const geometry_msgs::PoseWithCovarianceStamped& pose_msg) {
+
 }
 
 

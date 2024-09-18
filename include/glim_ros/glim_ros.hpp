@@ -5,6 +5,7 @@
 #include <opencv2/core.hpp>
 #include <glim/util/ros_cloud_converter.hpp>
 #include <nav_msgs/Odometry.h>
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <gtsam/geometry/Pose3.h>
 
 #include <tf2_ros/transform_listener.h>
@@ -38,6 +39,7 @@ public:
   void insert_imu(double stamp, const Eigen::Vector3d& linear_acc, const Eigen::Vector3d& angular_vel);
   void insert_frame(const glim::RawPoints::Ptr& raw_points);
   void insert_raw_gkv(const nav_msgs::Odometry & odom_msg);
+  void insert_raw_loc(const geometry_msgs::PoseWithCovarianceStamped & pose_msg);
 
   void wait(bool auto_quit);
 
