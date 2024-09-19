@@ -201,6 +201,24 @@ void GlimROS::insert_raw_loc(const geometry_msgs::PoseWithCovarianceStamped& pos
 
 }
 
+void GlimROS::insert_raw_tr(const geometry_msgs::PoseWithCovarianceStamped& pose_msg) {
+  auto [pose_odom_base_link, cov_odom_bl_bl] =  gazel_nav_tools::ros_pose_with_cov_to_gtsam(pose_msg.pose);
+
+  // gtsam::Pose3 T_odom_odom_ned = gtsam::Pose3(tf2::transformToEigen(tf_buffer.lookupTransform("odom", "odom_ned", pose_msg.header.stamp, ros::Duration(0.01))).matrix());
+
+  // gtsam::Pose3 T_base_link_imu = gtsam::Pose3(tf2::transformToEigen(tf_buffer.lookupTransform("base_link", "os_imu_top", pose_msg.header.stamp, ros::Duration(0.01))).matrix());
+  // gtsam::Matrix66 adj_gkv_bl =  T_base_link_imu.AdjointMap();
+  // auto pose_odom_imu = pose_odom_base_link.compose(T_base_link_imu);
+  // gtsam::Matrix66 cov_odom_imu_imu = adj_gkv_bl * cov_odom_bl_bl * adj_gkv_bl.transpose();
+  // gtsam::Matrix66 &cov_odom_ = cov_odom_imu_imu;
+  // auto pose_odom_bl = T_odom_odom_ned.compose(pose_odom_ned_bl);
+
+
+
+  odometry_estimation->insert_translation(pose_msg.header.stamp.toSec(), pose_odom_base_link.translation(), cov_odom_bl_bl.block<3, 3>(3, 3));
+
+}
+
 
 void GlimROS::insert_image(const double stamp, const cv::Mat& image) {
   spdlog::trace("image: {:.6f}", stamp);

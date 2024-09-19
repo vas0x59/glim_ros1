@@ -25,11 +25,13 @@ public:
     const std::string points_topic = config_ros.param<std::string>("glim_ros", "points_topic", "");
     const std::string image_topic = config_ros.param<std::string>("glim_ros", "image_topic", "");
     const std::string gkv_topic = config_ros.param<std::string>("glim_ros", "gkv_topic", "/gkv/odom");
+    const std::string tr_topic = config_ros.param<std::string>("glim_ros", "translation_topic", "/vec_map_loc/pose");
 
     // image_sub = image_transport.subscribe(image_topic, 5, &GlimNode::image_callback, this);
     imu_sub = nh.subscribe(imu_topic, 1, &GlimNode::imu_callback, this);
     points_sub = nh.subscribe(points_topic, 1, &GlimNode::points_callback, this);
     gkv_sub = nh.subscribe(gkv_topic, 1, &GlimNode::gkv_callback, this);
+    tr_sub = nh.subscribe(tr_topic, 1, &GlimNode::tr_callback, this);
 
     ext_subs = glim_ros->extension_subscriptions();
     for (auto& sub : ext_subs) {
@@ -58,6 +60,11 @@ public:
 
     glim_ros->insert_raw_gkv(odom_msg);
   }
+  void tr_callback(const geometry_msgs::PoseWithCovarianceStamped& msg) {
+
+    glim_ros->insert_raw_tr(msg);
+  }
+
 
   void spin() {
     while (ros::ok()) {
@@ -77,6 +84,7 @@ private:
   ros::Subscriber imu_sub;
   ros::Subscriber points_sub;
   ros::Subscriber gkv_sub;
+  ros::Subscriber tr_sub;
   std::vector<std::shared_ptr<glim::GenericTopicSubscription>> ext_subs;
 
   std::unique_ptr<glim::GlimROS> glim_ros;
