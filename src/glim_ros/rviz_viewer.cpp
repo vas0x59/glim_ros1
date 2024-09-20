@@ -24,6 +24,7 @@ RvizViewer::RvizViewer() : nh(), private_nh("~") {
   map_pub = private_nh.advertise<sensor_msgs::PointCloud2>("/glim_ros/map", 1, true);
 
   odom_pub = private_nh.advertise<nav_msgs::Odometry>("/glim_ros/odom", 1);
+  delta_pub = private_nh.advertise<gazel_nav_msgs::OdomDelta>("/glim_ros/delta", 1);
   pose_pub = private_nh.advertise<geometry_msgs::PoseStamped>("/glim_ros/pose", 1);
   transform_pub = private_nh.advertise<geometry_msgs::TransformStamped>("/glim_ros/transform", 1);
 
@@ -63,6 +64,7 @@ void RvizViewer::set_callbacks() {
 }
 
 void RvizViewer::odometry_new_frame(std::vector<EstimationFrame::ConstPtr> active_frames) {
+  std::cout << "update" << std::endl;
   auto t = ros::Time::now().toSec();
 
   EstimationFrame::ConstPtr latest;
@@ -76,22 +78,22 @@ void RvizViewer::odometry_new_frame(std::vector<EstimationFrame::ConstPtr> activ
     }
   }
 
-  auto latest = active_frames[ii];
+  latest = active_frames[ii];
 }
 
 
 
-  EstimationFrame::ConstPtr not_latest;
-  {
-    size_t ii = 0;
-    double mii = abs(latest->stamp - 1 - active_frames[ii]->stamp);
-    for (size_t i = 0; i < active_frames.size(); i++) {
-      if (abs(active_frames[i]->stamp - (latest->stamp - 1) ) < mii) {
-        ii  = 0;
-        mii = abs(active_frames[i]->stamp - (latest->stamp - 1));
-      }
-    }
-  }
+  // EstimationFrame::ConstPtr not_latest;
+  // {
+  //   size_t ii = 0;
+  //   double mii = abs(latest->stamp - 1 - active_frames[ii]->stamp);
+  //   for (size_t i = 0; i < active_frames.size(); i++) {
+  //     if (abs(active_frames[i]->stamp - (latest->stamp - 1) ) < mii) {
+  //       ii  = 0;
+  //       mii = abs(active_frames[i]->stamp - (latest->stamp - 1));
+  //     }
+  //   }
+  // }
   if (latest == nullptr) return;
 
   // if (points_pub.getNumSubscribers()) {
@@ -111,49 +113,45 @@ void RvizViewer::odometry_new_frame(std::vector<EstimationFrame::ConstPtr> activ
   //   auto points = frame_to_pointcloud2(frame_id, new_frame->stamp, *new_frame->frame);
   //   points_pub.publish(points);
   // }
+  if (latest != nullptr) {
+    const Eigen::Isometry3d T_odom_lidar = latest->T_world_lidar;
+    const Eigen::Quaterniond quat_odom_lidar(T_odom_lidar.linear());
 
-  const Eigen::Isometry3d T_odom_lidar = latest->T_world_lidar;
-  const Eigen::Quaterniond quat_odom_lidar(T_odom_lidar.linear());
-
-  // const Eigen::Isometry3d T_lidar_imu = new_frame->T_lidar_imu;
-  // const Eigen::Quaterniond quat_lidar_imu(T_lidar_imu.linear());
-
-  // Eigen::Isometry3d T_world_odom;
-  // Eigen::Quaterniond quat_world_odom;
-
-  // Eigen::Isometry3d T_world_lidar;
-  // Eigen::Quaterniond quat_world_imu;
-
-  // {
-  //   std::lock_guard<std::mutex> lock(trajectory_mutex);
-  //   trajectory->add_odom(new_frame->stamp, new_frame->T_world_imu);
-  //   T_world_odom = trajectory->get_T_world_odom();
-  //   quat_world_odom = Eigen::Quaterniond(T_world_odom.linear());
-
-  //   T_world_lidar = trajectory->odom2world(T_odom_lidar);
-  //   quat_world_imu = Eigen::Quaterniond(T_world_lidar.linear());
-  // }
-
-  if (odom_pub.getNumSubscribers()) {
-    nav_msgs::Odometry odom;
-    odom.header.stamp = ros::Time(new_frame->stamp);
-    odom.header.frame_id = "odom";
-    odom.child_frame_id = "base_link";
-    odom.pose.pose.position.x = T_odom_lidar.translation().x();
-    odom.pose.pose.position.y = T_odom_lidar.translation().y();
-    odom.pose.pose.position.z = T_odom_lidar.translation().z();
-    odom.pose.pose.orientation.x = quat_odom_lidar.x();
-    odom.pose.pose.orientation.y = quat_odom_lidar.y();
-    odom.pose.pose.orientation.z = quat_odom_lidar.z();
-    odom.pose.pose.orientation.w = quat_odom_lidar.w();
-    odom_pub.publish(odom);
+    if (odom_pub.getNumSubscribers()) {
+      nav_msgs::Odometry odom;
+      odom.header.stamp = ros::Time(latest->stamp);
+      odom.header.frame_id = "odom";
+      odom.child_frame_id = "base_link";
+      odom.pose.pose.position.x = T_odom_lidar.translation().x();
+      odom.pose.pose.position.y = T_odom_lidar.translation().y();
+      odom.pose.pose.position.z = T_odom_lidar.translation().z();
+      odom.pose.pose.orientation.x = quat_odom_lidar.x();
+      odom.pose.pose.orientation.y = quat_odom_lidar.y();
+      odom.pose.pose.orientation.z = quat_odom_lidar.z();
+      odom.pose.pose.orientation.w = quat_odom_lidar.w();
+      odom_pub.publish(odom);
+    }
   }
 
-  if (not_latest != nullptr && latest != nullptr) {
-      gazel_nav_msgs::OdomDelta msg;
-      T_pn = gtsam::Pose3{( not_latest->T_world_lidar.inverse() * latest->T_world_lidar).matrix()};
-      msg.T_pn = gtsam_to_ros_pose(T_pn);
-      msg.
+  if (latest != nullptr && latest->prev_stamp != -1) {
+    gazel_nav_msgs::OdomDelta msg;
+    auto T_pn =  latest->Xp.inverse() * latest->Xn;
+    auto A_np = T_pn.inverse().AdjointMap();
+
+    auto& S = latest->XpXn_cov;
+    auto& S_p = S.block<6, 6>(0, 0);
+    auto& S_n = S.block<6, 6>(6, 6);
+    auto& S_pn = S.block<6, 6>(0, 6);
+    auto& ST_pn = S.block<6, 6>(6, 0);
+
+
+    gtsam::Matrix66 C_np_n = A_np * S_p * A_np.transpose() + S_n + A_np * S_pn + ST_pn * A_np.transpose();
+    msg.T_pn = gazel_nav_tools::gtsam_to_ros_pose(T_pn);
+    Eigen::Matrix<double,6,6,Eigen::RowMajor>::Map(msg.cov.data()) = C_np_n;
+    msg.prev_stamp = ros::Time(latest->prev_stamp);
+    msg.header.frame_id = "os_imu_top";
+    msg.header.stamp = ros::Time(latest->stamp);
+    delta_pub.publish(msg);
   }
 
   // if (pose_pub.getNumSubscribers()) {

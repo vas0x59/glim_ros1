@@ -17,6 +17,7 @@
   <depend>roslib</depend>
   <depend>rosbag</depend>
   <depend>sensor_msgs</depend>
+  <depend>gazel_nav_msgs</depend>
 
 </package>
 
