@@ -40,6 +40,7 @@ public:
   void insert_frame(const glim::RawPoints::Ptr& raw_points);
   void insert_raw_gkv(const nav_msgs::Odometry & odom_msg);
   void insert_raw_loc(const geometry_msgs::PoseWithCovarianceStamped & pose_msg);
+  void insert_raw_tr(const geometry_msgs::PoseWithCovarianceStamped & pose_msg);
 
   void wait(bool auto_quit);
 
