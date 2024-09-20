@@ -68,17 +68,18 @@ void RvizViewer::odometry_new_frame(std::vector<EstimationFrame::ConstPtr> activ
   auto t = ros::Time::now().toSec();
 
   EstimationFrame::ConstPtr latest;
-  {
-  size_t ii = 0;
-  double mii =abs(t - active_frames[ii]->stamp);
-  for (size_t i = 0; i < active_frames.size(); i++) {
-    if (abs(active_frames[i]->stamp - t) < mii) {
-      ii  = 0;
-      mii = abs(active_frames[i]->stamp - t);
-    }
-  }
+  if (!active_frames.empty()){
+    latest = active_frames.back();
+  // size_t ii = 0;
+  // double mii =abs(t - active_frames[ii]->stamp);
+  // for (size_t i = 0; i < active_frames.size(); i++) {
+  //   if (abs(active_frames[i]->stamp - t) < mii) {
+  //     ii  = 0;
+  //     mii = abs(active_frames[i]->stamp - t);
+  //   }
+  // }
 
-  latest = active_frames[ii];
+  // latest = active_frames[ii];
 }
 
 
@@ -133,26 +134,26 @@ void RvizViewer::odometry_new_frame(std::vector<EstimationFrame::ConstPtr> activ
     }
   }
 
-  if (latest != nullptr && latest->prev_stamp != -1) {
-    gazel_nav_msgs::OdomDelta msg;
-    auto T_pn =  latest->Xp.inverse() * latest->Xn;
-    auto A_np = T_pn.inverse().AdjointMap();
+  // if (latest != nullptr && latest->prev_stamp != -1) {
+  //   gazel_nav_msgs::OdomDelta msg;
+  //   auto T_pn =  latest->Xp.inverse() * latest->Xn;
+  //   auto A_np = T_pn.inverse().AdjointMap();
 
-    auto& S = latest->XpXn_cov;
-    auto& S_p = S.block<6, 6>(0, 0);
-    auto& S_n = S.block<6, 6>(6, 6);
-    auto& S_pn = S.block<6, 6>(0, 6);
-    auto& ST_pn = S.block<6, 6>(6, 0);
+  //   auto& S = latest->XpXn_cov;
+  //   auto& S_p = S.block<6, 6>(0, 0);
+  //   auto& S_n = S.block<6, 6>(6, 6);
+  //   auto& S_pn = S.block<6, 6>(0, 6);
+  //   auto& ST_pn = S.block<6, 6>(6, 0);
 
 
-    gtsam::Matrix66 C_np_n = A_np * S_p * A_np.transpose() + S_n + A_np * S_pn + ST_pn * A_np.transpose();
-    msg.T_pn = gazel_nav_tools::gtsam_to_ros_pose(T_pn);
-    Eigen::Matrix<double,6,6,Eigen::RowMajor>::Map(msg.cov.data()) = C_np_n;
-    msg.prev_stamp = ros::Time(latest->prev_stamp);
-    msg.header.frame_id = "os_imu_top";
-    msg.header.stamp = ros::Time(latest->stamp);
-    delta_pub.publish(msg);
-  }
+  //   gtsam::Matrix66 C_np_n = A_np * S_p * A_np.transpose() + S_n + A_np * S_pn + ST_pn * A_np.transpose();
+  //   msg.T_pn = gazel_nav_tools::gtsam_to_ros_pose(T_pn);
+  //   Eigen::Matrix<double,6,6,Eigen::RowMajor>::Map(msg.cov.data()) = C_np_n;
+  //   msg.prev_stamp = ros::Time(latest->prev_stamp);
+  //   msg.header.frame_id = "os_imu_top";
+  //   msg.header.stamp = ros::Time(latest->stamp);
+  //   delta_pub.publish(msg);
+  // }
 
   // if (pose_pub.getNumSubscribers()) {
   //   geometry_msgs::PoseStamped pose;
