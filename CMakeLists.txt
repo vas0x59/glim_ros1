@@ -75,7 +75,17 @@ add_library(rviz_viewer SHARED
 )
 target_link_libraries(rviz_viewer
   glim_ros
+        ${catkin_LIBRARIES}
 )
+add_library(gkv_global SHARED
+        src/glim_ros/gkv_global.cpp
+)
+target_link_libraries(gkv_global
+        glim_ros
+        ${catkin_LIBRARIES}
+)
+
+
 
 #add_library(glim_ros_gazel
 #        src/glim_ros/glim_ros_gazel.cpp
@@ -134,7 +144,7 @@ endif()
 #############
 install(DIRECTORY include/ DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION})
 
-install(TARGETS glim_ros rviz_viewer glim_rosnode glim_rosbag offline_viewer
+install(TARGETS glim_ros rviz_viewer glim_rosnode glim_rosbag offline_viewer gkv_global
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
