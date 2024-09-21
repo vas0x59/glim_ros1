@@ -32,10 +32,12 @@ using ExtensionModuleBase = glim::ExtensionModuleROS;
 #include <glim/util/convert_to_string.hpp>
 //#include <glim_ext/util/config_ext.hpp>
 #include <gazel_nav_tools/utils.hpp>
+#include <glim/factors/GKVFactors.hpp>
 
 namespace glim {
 
 using gtsam::symbol_shorthand::X;
+using gtsam::symbol_shorthand::C;
 
 /**
  * @brief Naive implementation of GNSS constraints for the global optimization.
@@ -63,6 +65,8 @@ public:
     T_odom_odom_ned = gtsam::Pose3(tf2::transformToEigen(tf_buffer.lookupTransform("odom", "odom_ned", ros::Time(0), ros::Duration(5))).matrix());
     T_gkv_imu = gtsam::Pose3(tf2::transformToEigen(tf_buffer.lookupTransform("gkv", "os_imu_top", ros::Time(0), ros::Duration(5))).matrix());
 
+  std::cout << "T_odom_odom_ned: " << T_odom_odom_ned << std::endl;
+  std::cout << "T_gkv_imu: " << T_gkv_imu << std::endl;
 
     kill_switch = false;
     thread = std::thread([this] { backend_task(); });
@@ -92,7 +96,7 @@ public:
     // input_gnss_queue.push_back(gnss_data);
     auto [pose_odom_ned_gkv, cov_odom_ned_gkv_gkv] =  gazel_nav_tools::ros_pose_with_cov_to_gtsam(odom_msg->pose);
 
-
+  std::cout << "gkv" << std::endl;
 
     gtsam::Matrix66 adj_gkv_imu =  T_gkv_imu.AdjointMap();
     auto pose_odom_ned_bl = pose_odom_ned_gkv.compose(T_gkv_imu);
@@ -110,6 +114,7 @@ public:
     const auto factors = output_factors.get_all_and_clear();
     if (!factors.empty()) {
       logger->debug("insert {} GNSS prior factors", factors.size());
+  std::cout << "gkv factors size: " << factors.size() << std::endl;
       new_factors.add(factors);
     }
   }
@@ -165,16 +170,29 @@ public:
 
 
       // Add translation prior factor
-      if (transformation_initialized) {
+      if (submap_coords.size() > 0 && submaps.size() > 0) {
         // const Eigen::Vector3d xyz = T_world_utm * submap_coords.back().tail<3>();
 
         auto pose = submap_coords.back();
-        logger->debug("submap={} gnss={}", convert_to_string(submaps.back()->T_world_origin.translation().eval()), convert_to_string(pose.first.translation().eval()));
-
+        logger->info("submap={} gnss={}", convert_to_string(submaps.back()->T_world_origin.translation().eval()), convert_to_string(pose.first.translation().eval()));
+        std::cout << "gkv factor creation" << std::endl;
         const auto& submap = submaps.back();
         // note: should use a more accurate information matrix
-        const auto model = gtsam::noiseModel::Gaussian::Covariance(pose.second);
-        gtsam::NonlinearFactor::shared_ptr factor(new gtsam::PriorFactor<gtsam::Pose3>(X(submap->id),  pose.first, model));
+        Eigen::Matrix<double, 6, 6> cov = pose.second*150;
+        cov.block<1, 1>(2, 2) *= 1./2.;
+        cov.block<3, 3>(3, 3) *= 1./3.;
+        cov.block<1, 1>(5, 5) *=  0.005;  
+        // Eigen::Matrix<double, 6, 6> cov = pose.second*120;
+        // cov.block<1, 1>(2, 2) *= 1./9.;
+        // cov.block<3, 3>(3, 3) *= 1./1.;
+        // cov.block<1, 1>(5, 5) *=  0.01;
+        std::cout << "gkv factor creation cov: " << cov << std::endl;
+        // const auto model = gtsam::noiseModel::Gaussian::Covariance(cov);
+        // gtsam::NonlinearFactor::shared_ptr factor(new gtsam::PoseTranslationPrior<gtsam::Pose3>(X(submap->id), pose.first, gtsam::noiseModel::Isotropic::Information(gtsam::Vector3{10, 10, 100000}.asDiagonal())));
+        // gtsam::NonlinearFactor::shared_ptr factor(new glim::factors::GKVShiftedRelativePose3(X(submap->id), C(0), pose.first, gtsam::noiseModel::Gaussian::Covariance(cov)));
+        
+        gtsam::NonlinearFactor::shared_ptr factor(new gtsam::PriorFactor<gtsam::Pose3>(X(submap->id), pose.first, gtsam::noiseModel::Gaussian::Covariance(cov)));
+        // factor ;
         output_factors.push_back(factor);
       }
     }

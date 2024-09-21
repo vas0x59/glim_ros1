@@ -210,7 +210,7 @@ void RvizViewer::globalmap_on_update_submaps(const std::vector<SubMap::Ptr>& sub
       begin += submap->size();
     }
 
-    auto points_msg = frame_to_pointcloud2(world_frame_id, ros::Time::now().toSec(), *merged);
+    auto points_msg = frame_to_pointcloud2("odom", ros::Time::now().toSec(), *merged);
     map_pub.publish(points_msg);
   });
 }

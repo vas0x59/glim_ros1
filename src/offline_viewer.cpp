@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
   std::cout << "config_path: " << config_path << std::endl;
   glim::GlobalConfig::instance(config_path);
 
-  glim::OfflineViewer viewer;
+  glim::OfflineViewer viewer("/tmp/dump");
   viewer.wait();
 
   return 0;
