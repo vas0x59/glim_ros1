@@ -96,7 +96,7 @@ public:
     // input_gnss_queue.push_back(gnss_data);
     auto [pose_odom_ned_gkv, cov_odom_ned_gkv_gkv] =  gazel_nav_tools::ros_pose_with_cov_to_gtsam(odom_msg->pose);
 
-  std::cout << "gkv" << std::endl;
+  // std::cout << "gkv" << std::endl;
 
     gtsam::Matrix66 adj_gkv_imu =  T_gkv_imu.AdjointMap();
     auto pose_odom_ned_bl = pose_odom_ned_gkv.compose(T_gkv_imu);
