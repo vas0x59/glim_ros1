@@ -154,7 +154,7 @@ public:
           break;
         }
         const auto left = right - 1;
-        logger->debug("submap={:.6f} utm_left={:.6f} utm_right={:.6f}", stamp, (*left).second, (*right).second);
+        logger->info("submap={:.6f} utm_left={:.6f} utm_right={:.6f}", stamp, (*left).second, (*right).second);
 
         const double tl = (*left).second;
         const double tr = (*right).second;
@@ -178,9 +178,9 @@ public:
         std::cout << "gkv factor creation" << std::endl;
         const auto& submap = submaps.back();
         // note: should use a more accurate information matrix
-        Eigen::Matrix<double, 6, 6> cov = pose.second*150;
-        cov.block<1, 1>(2, 2) *= 1./2.;
-        cov.block<3, 3>(3, 3) *= 1./3.;
+        Eigen::Matrix<double, 6, 6> cov = pose.second;
+        cov.block<1, 1>(2, 2) *= 1./6.;
+        cov.block<3, 3>(3, 3) *= 1./6.;
         cov.block<1, 1>(5, 5) *=  0.005;  
         // Eigen::Matrix<double, 6, 6> cov = pose.second*120;
         // cov.block<1, 1>(2, 2) *= 1./9.;
