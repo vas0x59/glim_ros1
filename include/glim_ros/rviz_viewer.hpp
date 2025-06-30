@@ -22,7 +22,7 @@ public:
 
 private:
   void set_callbacks();
-  void odometry_new_frame(const EstimationFrame::ConstPtr& new_frame);
+  void odometry_new_frame(std::vector<EstimationFrame::ConstPtr> active_frames);
   void globalmap_on_update_submaps(const std::vector<SubMap::Ptr>& submaps);
   void invoke(const std::function<void()>& task);
 
@@ -46,6 +46,7 @@ private:
   ros::Publisher map_pub;
 
   ros::Publisher odom_pub;
+  ros::Publisher delta_pub;
   ros::Publisher pose_pub;
   ros::Publisher transform_pub;
 
