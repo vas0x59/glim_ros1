@@ -188,10 +188,10 @@ public:
         // cov.block<1, 1>(5, 5) *=  0.01;
         std::cout << "gkv factor creation cov: " << cov << std::endl;
         // const auto model = gtsam::noiseModel::Gaussian::Covariance(cov);
-        // gtsam::NonlinearFactor::shared_ptr factor(new gtsam::PoseTranslationPrior<gtsam::Pose3>(X(submap->id), pose.first, gtsam::noiseModel::Isotropic::Information(gtsam::Vector3{10, 10, 100000}.asDiagonal())));
+        gtsam::NonlinearFactor::shared_ptr factor(new gtsam::PoseTranslationPrior<gtsam::Pose3>(X(submap->id), pose.first, gtsam::noiseModel::Isotropic::Information(gtsam::Vector3{100, 100, 10000}.asDiagonal())));
         // gtsam::NonlinearFactor::shared_ptr factor(new glim::factors::GKVShiftedRelativePose3(X(submap->id), C(0), pose.first, gtsam::noiseModel::Gaussian::Covariance(cov)));
         
-        gtsam::NonlinearFactor::shared_ptr factor(new gtsam::PriorFactor<gtsam::Pose3>(X(submap->id), pose.first, gtsam::noiseModel::Gaussian::Covariance(cov)));
+        // gtsam::NonlinearFactor::shared_ptr factor(new gtsam::PriorFactor<gtsam::Pose3>(X(submap->id), pose.first, gtsam::noiseModel::Gaussian::Covariance(cov)));
         // factor ;
         output_factors.push_back(factor);
       }
